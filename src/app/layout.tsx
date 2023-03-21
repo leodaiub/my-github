@@ -5,39 +5,13 @@ import { ChakraProvider, ColorModeScript, Container } from "@chakra-ui/react";
 import theme from "./theme";
 import React, { useEffect } from "react";
 import NavBar from "@/components/NavBar";
-import { create } from "zustand";
-import produce from "immer";
-import { GraphQLClient } from "graphql-request";
 
-export const client = new GraphQLClient("https://api.github.com/graphql", {
-  headers: { authorization: `Bearer ${process.env.NEXT_PUBLIC_GH_TOKEN}` },
-});
-
-export const fetcher = (query: any) => client.request(query);
-
-interface IState {
-  pagesEndCursors: string[];
-  setPagesEndCursors: (_endCursors: string[]) => void;
-  loading: boolean;
-  setLoading: (_loading: boolean) => void;
-}
-
-export const useStore = create<IState>((set) => ({
-  pagesEndCursors: [""],
-  setPagesEndCursors: (endCursors: string[]) =>
-    set(
-      produce((state) => {
-        state.pagesEndCursors = endCursors;
-      })
-    ),
-  loading: true,
-  setLoading: (loading: boolean) =>
-    set(
-      produce((state) => {
-        state.loading = loading;
-      })
-    ),
-}));
+import { fetcher } from "@/graphql/client";
+import { PAGINATED_REPOS_QUERY } from "@/graphql/queries";
+import { SWRConfig } from "swr";
+import { useStore } from "@/store/store";
+import Head from "next/head";
+import { RepoListResponse, RepositoryReponse } from "@/types/repository";
 
 export default function RootLayout({
   children,
@@ -55,24 +29,10 @@ export default function RootLayout({
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        const data: any = await fetcher(`{
-          viewer {
-            repositories(first: ${PAGE_SIZE}, after: ${JSON.stringify(
-          endCursor || null
-        )}) {
-              pageInfo {hasNextPage, endCursor}
-              totalCount
-              nodes {
-                name
-                stargazerCount
-                primaryLanguage {
-                  name
-                }
-                updatedAt
-              }
-            }
-          }
-        }`);
+        const data = (await fetcher(PAGINATED_REPOS_QUERY, {
+          pageSize: PAGE_SIZE,
+          cursor: endCursor || null,
+        })) as RepoListResponse;
 
         endCursor = data.viewer.repositories.pageInfo.endCursor;
         endCursors.push(endCursor);
@@ -93,17 +53,26 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <head />
+      <Head>
+        <title>My Github</title>
+      </Head>
+
       <body>
         <ColorModeScript initialColorMode={theme.config.initialColorMode} />
-        <CacheProvider>
-          <ChakraProvider theme={theme} cssVarsRoot="body">
-            <Container h="100vh">
-              <NavBar />
-              {children}
-            </Container>
-          </ChakraProvider>
-        </CacheProvider>
+        <SWRConfig
+          value={{
+            fetcher: ([query, variables]) => fetcher(query, variables),
+          }}
+        >
+          <CacheProvider>
+            <ChakraProvider theme={theme} cssVarsRoot="body">
+              <Container h="100vh">
+                <NavBar />
+                {children}
+              </Container>
+            </ChakraProvider>
+          </CacheProvider>
+        </SWRConfig>
       </body>
     </html>
   );
