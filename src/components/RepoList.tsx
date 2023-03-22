@@ -1,7 +1,7 @@
 "use client";
 import { PAGINATED_REPOS_QUERY } from "@/graphql/queries";
 import { useStore } from "@/store/store";
-import { RepoListResponse } from "@/types/repository";
+import { RepoListResponse, Repository } from "@/types/repository";
 import { Link } from "@chakra-ui/next-js";
 import { Stack, Skeleton, Card, CardBody, Flex, Text } from "@chakra-ui/react";
 import Pagination from "@choc-ui/paginator";
@@ -34,7 +34,7 @@ export default function RepoList({ page }: { page: number }) {
           .map((_, i) => (
             <Skeleton key={i} h={100} isLoaded={!isLoading && !loading} />
           ))}
-      {data?.viewer.repositories.nodes.map((repo: any) => (
+      {data?.viewer.repositories.nodes.map((repo: Repository) => (
         <Card h="100px" key={repo.name}>
           <CardBody>
             <Link
